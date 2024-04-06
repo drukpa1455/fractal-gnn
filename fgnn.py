@@ -5,8 +5,10 @@ from torch_geometric.nn import GCNConv
 from torch_geometric.datasets import GDELTLite
 from torch_geometric.loader import DataLoader
 from torch_geometric.transforms import RandomLinkSplit
+from torch_geometric.data import Data
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 from tqdm import tqdm
+from typing import Tuple
 
 class FGNN(nn.Module):
     """
@@ -18,7 +20,7 @@ class FGNN(nn.Module):
         out_channels (int): Number of output channels (for the final prediction task).
         num_scales (int): Number of scales (GCN layers) in the FGNN architecture.
     """
-    def __init__(self, in_channels, hidden_channels, out_channels, num_scales):
+    def __init__(self, in_channels: int, hidden_channels: int, out_channels: int, num_scales: int) -> None:
         super(FGNN, self).__init__()
         self.convs = nn.ModuleList([GCNConv(in_channels, hidden_channels)] +
                                    [GCNConv(hidden_channels, hidden_channels) for _ in range(num_scales - 2)] +
@@ -26,7 +28,7 @@ class FGNN(nn.Module):
         self.final_conv = GCNConv(hidden_channels, out_channels)
         self.scale_weights = nn.Parameter(torch.ones(num_scales))
 
-    def forward(self, x, edge_index):
+    def forward(self, x: torch.Tensor, edge_index: torch.Tensor) -> torch.Tensor:
         """
         Forward pass of the FGNN model.
 
@@ -49,7 +51,7 @@ class FGNN(nn.Module):
         x = self.final_conv(x, edge_index)
         return x
 
-def train(model, optimizer, loader, epochs):
+def train(model: FGNN, optimizer: optim.Optimizer, loader: DataLoader, epochs: int) -> None:
     """
     Training loop for the FGNN model.
 
@@ -64,15 +66,11 @@ def train(model, optimizer, loader, epochs):
         for data in loader:
             optimizer.zero_grad()
             out = model(data.x.float(), data.edge_index)
-            # Perform training task or loss computation here
-            # For example, you can use the output embeddings for downstream tasks like link prediction or node classification
-
-            # Example: Binary cross-entropy loss for link prediction
-            loss = nn.functional.binary_cross_entropy_with_logits(out, data.y.float())
+            loss = nn.functional.binary_cross_entropy_with_logits(out, data.edge_label.float())
             loss.backward()
             optimizer.step()
 
-def evaluate(model, loader):
+def evaluate(model: FGNN, loader: DataLoader) -> float:
     """
     Evaluate the FGNN model on a dataset.
 
@@ -88,10 +86,10 @@ def evaluate(model, loader):
     with torch.no_grad():
         for data in loader:
             out = model(data.x.float(), data.edge_index)
-            mse_sum += nn.MSELoss()(out, data.y.float()).item()
+            mse_sum += nn.MSELoss()(out, data.edge_label.float()).item()
     return mse_sum / len(loader)
 
-def downstream_task(model, loader):
+def downstream_task(model: FGNN, loader: DataLoader) -> Tuple[float, float, float, float]:
     """
     Perform downstream task evaluation (e.g., link prediction) using the FGNN model.
 
@@ -108,13 +106,13 @@ def downstream_task(model, loader):
     with torch.no_grad():
         for data in loader:
             out = model(data.x.float(), data.edge_index)
-            predictions.extend(out.argmax(dim=1).tolist())
-            true_labels.extend(data.y.view(-1).tolist())
+            predictions.extend(out.view(-1).ge(0.5).tolist())
+            true_labels.extend(data.edge_label.view(-1).tolist())
 
     accuracy = accuracy_score(true_labels, predictions)
-    precision = precision_score(true_labels, predictions, average='macro', zero_division='raise')
-    recall = recall_score(true_labels, predictions, average='macro', zero_division='raise')
-    f1 = f1_score(true_labels, predictions, average='macro', zero_division='raise')
+    precision = precision_score(true_labels, predictions)
+    recall = recall_score(true_labels, predictions)
+    f1 = f1_score(true_labels, predictions)
 
     return accuracy, precision, recall, f1
 
@@ -123,17 +121,17 @@ def main():
     dataset = GDELTLite(root='./data/GDELTLite')
 
     # Split the dataset into train and test sets
-    transform = RandomLinkSplit(is_undirected=True, split_link_ratio=[0.7, 0.3])
-    train_dataset, test_dataset = transform(dataset)
+    transform = RandomLinkSplit(is_undirected=True, split_labels=True)
+    train_data, val_data, test_data = transform(dataset)
 
     # Create data loaders
-    train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
-    test_loader = DataLoader(test_dataset, batch_size=32)
+    train_loader = DataLoader(train_data, batch_size=32, shuffle=True)
+    test_loader = DataLoader(test_data, batch_size=32)
 
     # Model hyperparameters
     in_channels = dataset.num_node_features
     hidden_channels = 64
-    out_channels = 2  # Binary classification task (link prediction)
+    out_channels = 1  # Binary classification task (link prediction)
     num_scales = 3
     epochs = 50
     lr = 0.01
