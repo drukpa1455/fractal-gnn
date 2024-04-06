@@ -3,6 +3,7 @@ pandas
 sklearn
 tqdm
 torch-geometric
+torch_geometric_temporal
 torch
 torchvision
 torchaudio
