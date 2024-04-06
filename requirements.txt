@@ -1,0 +1,8 @@
+numpy
+pandas
+tqdm
+tinygrad
+torch-geometric
+torch
+torchvision
+torchaudio
