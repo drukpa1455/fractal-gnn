@@ -1,7 +1,7 @@
 numpy
 pandas
+sklearn
 tqdm
-tinygrad
 torch-geometric
 torch
 torchvision

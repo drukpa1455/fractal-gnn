@@ -66,20 +66,24 @@ def train(model: FGNN, optimizer: optim.Optimizer, loader: DataLoader, epochs: i
             # Perform any desired training task or loss computation here
             # For example, you can use the output embeddings for downstream tasks like link prediction or node classification
 
-def evaluate(model: FGNN, loader: DataLoader) -> None:
+def evaluate(model: FGNN, loader: DataLoader) -> float:
     """
     Evaluate the FGNN model on test data.
 
     Args:
         model (FGNN): FGNN model to evaluate.
         loader (DataLoader): DataLoader for test data.
+    
+    Returns:
+        float: Mean squared erro (MSE) on test data.
     """
     model.eval()
+    mse_sum = 0
     with torch.no_grad():
         for data in loader:
-            out = model(data.x.float(), data.edge_index)  # Convert node features to float
-            # Perform any desired evaluation or metrics computation here
-            # For example, you can use the output embeddings for downstream tasks like link prediction or node classification
+            out = model(data.x.float(), data.edge_index)
+            mse_sum += nn.MSELoss()(out, data.y.float()).item()
+        return mse_sum / len(loader)
 
 def main():
     # Load the GDELTLite dataset
@@ -94,7 +98,7 @@ def main():
     # Model hyperparameters
     in_channels = dataset.num_node_features
     hidden_channels = 64
-    out_channels = 32  # Adjust the output channels as needed
+    out_channels = 1
     num_scales = 3
     epochs = 50
 
@@ -108,7 +112,21 @@ def main():
     train(model, optimizer, train_loader, epochs)
 
     # Evaluate the model
-    evaluate(model, test_loader)
+    test_mse = evaluate(model, test_loader)
+    print(f"Test MSE: {test_mse:.4f}")
+
+    # Baseline models
+    baseline_models = [
+        ("GCN", GCNConv(in_channels, out_channels)),
+        # ADd more baseline models here
+    ]
+
+    # Evaluate baseline models
+    for name, baseline_model in baseline_models:
+        baseline_optimizer = optim.Adam(baseline_model.parameters(), lr=0.01)
+        train(baseline_model, baseline_optimizer, train_loader, epochs)
+        baseline_mse = evaluate(baseline_model, test_loader)
+        print(f"{name} Test MSE: {baseline_mse:.4f}")
 
 if __name__ == "__main__":
     main()
