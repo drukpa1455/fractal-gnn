@@ -29,9 +29,11 @@ The output of the transformer layers is passed through a series of fully connect
 ### Training and Optimization
 STAFT is trained end-to-end using backpropagation and a suitable loss function, such as mean squared error (MSE) or mean absolute error (MAE). We employ techniques such as early stopping and learning rate scheduling to prevent overfitting and improve convergence.
 Experiments We evaluate STAFT on several real-world datasets, including traffic speed forecasting (METR-LA [14], PEMS-BAY [14]) and weather prediction (NOAA [15]). We compare our model against state-of-the-art baselines, such as STGCN [6], DCRNN [7], and Graph WaveNet [8]. The experimental results demonstrate that STAFT consistently outperforms the baselines in terms of accuracy (MSE, MAE, RMSE) and efficiency (training time, inference time).
-Conclusion In this paper, we proposed STAFT, a novel Spatiotemporal Fractal Transformer Graph Neural Network architecture for multivariate time series forecasting. By combining fractal graph convolutions and multi-head self-attention, STAFT effectively captures both spatial and temporal dependencies in the data. Extensive experiments on real-world datasets demonstrate the superiority of STAFT over state-of-the-art baselines. We believe that STAFT has the potential to be applied to a wide range of spatiotemporal prediction tasks and inspire further research in this direction.
 
-# Acknowledgments
+## Conclusion
+In this paper, we proposed STAFT, a novel Spatiotemporal Fractal Transformer Graph Neural Network architecture for multivariate time series forecasting. By combining fractal graph convolutions and multi-head self-attention, STAFT effectively captures both spatial and temporal dependencies in the data. Extensive experiments on real-world datasets demonstrate the superiority of STAFT over state-of-the-art baselines. We believe that STAFT has the potential to be applied to a wide range of spatiotemporal prediction tasks and inspire further research in this direction.
+
+## Acknowledgments
 References
 [1] Kipf, T. N., & Welling, M. (2016). Semi-supervised classification with graph convolutional networks. arXiv preprint arXiv:1609.02907.
 [2] Veličković, P., Cucurull, G., Casanova, A., Romero, A., Lio, P., & Bengio, Y. (2017). Graph attention networks. arXiv preprint arXiv:1710.10903.
