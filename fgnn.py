@@ -4,6 +4,7 @@ import torch.optim as optim
 from torch_geometric.nn import GCNConv
 from torch_geometric.datasets import GDELTLite
 from torch_geometric.loader import DataLoader
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 from tqdm import tqdm
 from typing import List
 
@@ -85,6 +86,33 @@ def evaluate(model: FGNN, loader: DataLoader) -> float:
             mse_sum += nn.MSELoss()(out, data.y.float()).item()
         return mse_sum / len(loader)
 
+def downstream_task(model: FGNN, loader: DataLoader) -> tuple:
+    """
+    Perform downstream task evaluation.
+
+    Args:
+        model (FGNN): FGNN model to evaluate.
+        loader (DataLoader): DataLoader for test data.
+    
+    Returns:
+        tuple: Accuracy, Precision, Recall, F1-score.
+    """
+    model.eval()
+    predictions = []
+    true_labels = []
+    with torch.no_grad():
+        for data in loader:
+            out = model(data.x.float(), data.edge_index)
+            predictions.extend(out.argmax(dim=1).tolist())
+            true_labels.extend(data.y.view(-1).tolist())
+    
+    accuracy = accuracy_score(true_labels, predictions)
+    precision = precision_score(true_labels, predictions, average='macro')
+    recall = recall_score(true_labels, predictions, average='macro')
+    f1 = f1_score(true_labels, predictions, average='macro')
+
+    return accuracy, precision, recall, f1
+
 def main():
     # Load the GDELTLite dataset
     dataset = GDELTLite(root='./data/GDELTLite')
@@ -98,7 +126,7 @@ def main():
     # Model hyperparameters
     in_channels = dataset.num_node_features
     hidden_channels = 64
-    out_channels = 1
+    out_channels = dataset.num_classes
     num_scales = 3
     epochs = 50
 
@@ -115,6 +143,14 @@ def main():
     test_mse = evaluate(model, test_loader)
     print(f"Test MSE: {test_mse:.4f}")
 
+    # Perform downstream task evaluation
+    accuracy, precision, recall, f1 = downstream_task(model, test_loader)
+    print(f"Downstream Task Evaluation:")
+    print(f"Accuracy: {accuracy:.4f}")
+    print(f"Precision: {precision:.4f}")
+    print(f"Recall: {recall:.4f}")
+    print(f"F1-score: {f1:.4f}")
+
     # Baseline models
     baseline_models = [
         ("GCN", GCNConv(in_channels, out_channels)),
@@ -127,6 +163,11 @@ def main():
         train(baseline_model, baseline_optimizer, train_loader, epochs)
         baseline_mse = evaluate(baseline_model, test_loader)
         print(f"{name} Test MSE: {baseline_mse:.4f}")
+        baseline_accuracy, baseline_precision, baseline_recall, baseline_f1 = downstream_task(baseline_model, test_loader)
+        print(f"Downstream Task Evaluation:")
+        print(f"Accuracy: {baseline_accuracy:.4f}")
+        print(f"Recall: {baseline_recall:.4f}")
+        print(f"F1-score: {baseline_f1:.4f}")
 
 if __name__ == "__main__":
     main()
