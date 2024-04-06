@@ -8,6 +8,7 @@ from torch_geometric.data import DataLoader
 from sklearn.metrics import mean_squared_error, mean_absolute_error
 from tqdm import tqdm
 from typing import Tuple
+import numpy as np
 
 class SpatioTemporalFGNN(nn.Module):
     def __init__(self, in_channels: int, hidden_channels: int, out_channels: int, num_scales: int, seq_length: int, dropout: float = 0.1) -> None:
@@ -63,7 +64,7 @@ def evaluate(model: SpatioTemporalFGNN, loader: DataLoader, device: torch.device
     mae = mean_absolute_error(y_true.cpu().numpy(), y_pred.cpu().numpy())
     return mse, mae
 
-def main():
+def main() -> None:
     # Set the device (CPU or GPU)
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -88,19 +89,35 @@ def main():
     dropout = 0.1
     epochs = 100
     lr = 0.001
+    weight_decay = 1e-5
 
     # Create the spatiotemporal FGNN model
     model = SpatioTemporalFGNN(in_channels, hidden_channels, out_channels, num_scales, seq_length, dropout).to(device)
 
-    # Create the optimizer
-    optimizer = optim.Adam(model.parameters(), lr=lr)
+    # Create the optimizer with weight decay
+    optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
 
-    # Train the model
-    train(model, optimizer, train_loader, epochs, device)
+    # Train the model with early stopping
+    best_val_loss = float('inf')
+    patience = 10
+    counter = 0
+    for epoch in range(epochs):
+        train(model, optimizer, train_loader, 1, device)
+        val_mse, val_mae = evaluate(model, val_loader, device)
+        print(f"Epoch {epoch+1}, Validation MSE: {val_mse:.4f}, MAE: {val_mae:.4f}")
 
-    # Evaluate the model on the validation set
-    val_mse, val_mae = evaluate(model, val_loader, device)
-    print(f"\nValidation MSE: {val_mse:.4f}, MAE: {val_mae:.4f}")
+        if val_mse < best_val_loss:
+            best_val_loss = val_mse
+            torch.save(model.state_dict(), 'best_model.pth')
+            counter = 0
+        else:
+            counter += 1
+            if counter >= patience:
+                print(f"Early stopping at epoch {epoch+1}")
+                break
+
+    # Load the best model
+    model.load_state_dict(torch.load('best_model.pth'))
 
     # Evaluate the model on the test set
     test_mse, test_mae = evaluate(model, test_loader, device)
